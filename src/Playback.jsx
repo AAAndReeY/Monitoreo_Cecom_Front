@@ -32,7 +32,7 @@ export default function Playback({ setView }) {
   const [playData, setPlayData] = useState(null);
 
   useEffect(() => {
-    fetch('import.meta.env.VITE_API_URL/api/cameras')
+    fetch(`${import.meta.env.VITE_API_URL}/api/cameras`)
       .then(r => r.json())
       .then(setCameras)
       .catch(console.error);
