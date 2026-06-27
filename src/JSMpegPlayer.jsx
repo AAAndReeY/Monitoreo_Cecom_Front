@@ -4,7 +4,7 @@ import { CameraOff } from 'lucide-react';
 const JSMpegPlayer = ({
   camId, channel, onClose, title,
   isSelected, onSelect, onDoubleClick,
-  isPlayback, starttime
+  isPlayback, starttime, isPtz = true
 }) => {
   const canvasRef = useRef(null);
   const playerRef = useRef(null);
@@ -92,7 +92,7 @@ const JSMpegPlayer = ({
       body: JSON.stringify({ command: cmd }),
     }).catch(() => {});
 
-    if (!isSelected) {
+    if (!isSelected || !isPtz) {
       if (activeKeyRef.current) { ptz('stop'); activeKeyRef.current = null; }
       return;
     }
@@ -126,7 +126,7 @@ const JSMpegPlayer = ({
   }, [isSelected, camId]);
 
   /* ── RENDER ──────────────────────────────────── */
-  const ptzLabel = isSelected ? 'PTZ ACTIVO · flechas para mover' : 'Doble clic para maximizar';
+  const ptzLabel = isSelected && isPtz ? 'PTZ ACTIVO · flechas para mover' : 'Doble clic para maximizar';
 
   return (
     <article
@@ -156,9 +156,11 @@ const JSMpegPlayer = ({
       </div>
 
       {/* PTZ / maximize hint */}
-      <div className="ptz-hint">
-        <span className="ptz-hint-badge">{ptzLabel}</span>
-      </div>
+      {(isSelected || ptzLabel === 'Doble clic para maximizar') && (
+        <div className="ptz-hint">
+          <span className="ptz-hint-badge">{ptzLabel}</span>
+        </div>
+      )}
 
       {/* Loading */}
       {loading && !error && (

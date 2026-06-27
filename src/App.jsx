@@ -252,6 +252,12 @@ export default function App() {
     return cam.name + (idx > 0 ? ` · Vista ${idx + 1}` : '');
   };
 
+  const getIsPtz = (key) => {
+    const { camId, channel } = parseKey(key);
+    const cam = cameras.find(c => c.id === camId);
+    return !cam || (cam.channels || []).indexOf(channel) === 0;
+  };
+
   if (view === 'menu')     return <MainMenu setView={setView} />;
   if (view === 'playback') return <Playback setView={setView} />;
 
@@ -269,7 +275,7 @@ export default function App() {
           <div className="sb-brand-logo">
             <MonitorPlay size={16} />
           </div>
-          <span className="sb-brand-name">HikViewer Pro</span>
+          <span className="sb-brand-name">SJL Viewer</span>
           <button className="sb-btn-menu" onClick={() => setView('menu')}>Menú</button>
         </div>
 
@@ -370,6 +376,7 @@ export default function App() {
                   camId={camId}
                   channel={channel}
                   title={getName(key)}
+                  isPtz={getIsPtz(key)}
                   onClose={() => toggle(key)}
                   isSelected={ptzCam === key}
                   onSelect={() => setPtzCam(key)}
