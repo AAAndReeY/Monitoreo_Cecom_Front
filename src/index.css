@@ -543,7 +543,6 @@ body {
 }
 
 /* Cámara suelta (impar) ocupa el ancho de sus vecinas */
-.cam-grid[data-count="3"] > article:nth-child(3) { grid-column: 1 / -1; }
 .cam-grid[data-count="5"] > article:nth-child(5) { grid-column: 2 / 4; }
 .cam-grid[data-count="7"] > article:nth-child(7) { grid-column: 2 / 4; }
 
