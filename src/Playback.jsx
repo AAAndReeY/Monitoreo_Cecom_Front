@@ -1,104 +1,145 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Play, MonitorPlay } from 'lucide-react';
+import { MonitorPlay, Play, Calendar } from 'lucide-react';
 import JSMpegPlayer from './JSMpegPlayer';
 
-function Playback({ setView }) {
+const fieldStyle = {
+  display: 'block',
+  fontSize: '10px',
+  color: 'var(--t2)',
+  marginBottom: '5px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.055em',
+  fontWeight: 600,
+};
+
+const inputStyle = {
+  width: '100%',
+  padding: '7px 10px',
+  background: 'var(--bg)',
+  border: '1px solid var(--line2)',
+  borderRadius: '6px',
+  color: 'var(--t1)',
+  fontSize: '12px',
+  fontFamily: 'inherit',
+  outline: 'none',
+  colorScheme: 'dark',
+};
+
+export default function Playback({ setView }) {
   const [cameras, setCameras] = useState([]);
-  const [selectedCam, setSelectedCam] = useState(null);
-  const [dateTime, setDateTime] = useState('');
+  const [cam, setCam]         = useState('');
+  const [dt, setDt]           = useState('');
   const [playData, setPlayData] = useState(null);
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/cameras')
-      .then(res => res.json())
-      .then(data => setCameras(data))
+    fetch(`${import.meta.env.VITE_API_URL}/api/cameras`)
+      .then(r => r.json())
+      .then(setCameras)
       .catch(console.error);
   }, []);
 
   const handlePlay = () => {
-    if (!selectedCam || !dateTime) return;
-    
-    // Parse local datetime and convert to proper UTC for Hikvision
-    const dateObj = new Date(dateTime);
-    const formattedTime = dateObj.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    
-    setPlayData({
-      camId: selectedCam,
-      starttime: formattedTime,
-      key: Date.now() // Force re-render
-    });
+    if (!cam || !dt) return;
+    const d = new Date(dt);
+    const ts = d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    setPlayData({ camId: cam, starttime: ts, key: Date.now() });
   };
 
-  const getCameraName = (id) => {
-    const cam = cameras.find(c => c.id === id);
-    return cam ? cam.name : id;
-  };
+  const getCamName = id => cameras.find(c => c.id === id)?.name ?? id;
 
   return (
-    <div className="app-container">
-      <aside className="sidebar glass-panel">
-        <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ fontSize: '1.2rem' }}><MonitorPlay size={24} color="#3b82f6" /> Playback</h1>
-          <button 
-            onClick={() => setView('menu')}
-            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
+    <div className="layout">
+
+      {/* ── SIDEBAR ── */}
+      <aside className="sidebar">
+        <div className="sb-brand">
+          <div className="sb-brand-logo">
+            <MonitorPlay size={16} />
+          </div>
+          <span className="sb-brand-name">Grabaciones</span>
+          <button className="sb-btn-menu" onClick={() => setView('menu')}>Menú</button>
+        </div>
+
+        <div style={{ padding: '14px 12px', borderBottom: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '13px' }}>
+
+          <div>
+            <label style={fieldStyle}>Cámara</label>
+            <select
+              value={cam}
+              onChange={e => setCam(e.target.value)}
+              style={{ ...inputStyle, cursor: 'pointer' }}
+            >
+              <option value="" disabled>Seleccionar cámara...</option>
+              {cameras.map(c => (
+                <option key={c.id} value={c.id}>{c.name} — {c.zone}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={fieldStyle}>Fecha y hora</label>
+            <input
+              type="datetime-local"
+              value={dt}
+              onChange={e => setDt(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          <button
+            onClick={handlePlay}
+            disabled={!cam || !dt}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '7px',
+              padding: '8px',
+              borderRadius: '6px',
+              border: 'none',
+              background: (!cam || !dt) ? 'var(--surf3)' : 'var(--cx)',
+              color: (!cam || !dt) ? 'var(--t2)' : '#021018',
+              fontSize: '13px',
+              fontWeight: '700',
+              fontFamily: 'inherit',
+              cursor: (!cam || !dt) ? 'not-allowed' : 'pointer',
+              transition: 'background 0.15s',
+            }}
           >
-            Menú
+            <Play size={14} />
+            Reproducir
           </button>
         </div>
 
-        <div style={{ padding: '16px 0', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <h3 style={{ fontSize: '0.9rem', marginBottom: '8px', color: 'var(--text-secondary)' }}>Seleccionar Cámara</h3>
-          <select 
-            value={selectedCam || ''} 
-            onChange={(e) => setSelectedCam(e.target.value)}
-            style={{ width: '100%', padding: '8px', borderRadius: '6px', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.2)' }}
-          >
-            <option value="" disabled>Elige una cámara</option>
-            {cameras.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ padding: '16px 0' }}>
-          <h3 style={{ fontSize: '0.9rem', marginBottom: '8px', color: 'var(--text-secondary)' }}>Fecha y Hora</h3>
-          <input 
-            type="datetime-local" 
-            value={dateTime}
-            onChange={(e) => setDateTime(e.target.value)}
-            style={{ width: '100%', padding: '8px', borderRadius: '6px', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', colorScheme: 'dark' }}
-          />
-        </div>
-
-        <button 
-          onClick={handlePlay}
-          disabled={!selectedCam || !dateTime}
-          style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'var(--accent-color)', color: 'white', border: 'none', cursor: (!selectedCam || !dateTime) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '16px', opacity: (!selectedCam || !dateTime) ? 0.5 : 1 }}
-        >
-          <Play size={18} /> Buscar y Reproducir
-        </button>
+        {playData && (
+          <div style={{ padding: '10px 12px', fontSize: '11px', color: 'var(--t2)', borderBottom: '1px solid var(--line)' }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--cx)' }}>{getCamName(playData.camId)}</span>
+            <br />
+            <span style={{ color: 'var(--t3)', fontSize: '10px' }}>{new Date(dt).toLocaleString('es-PE')}</span>
+          </div>
+        )}
       </aside>
 
-      <main className="main-content">
-        <header className="header-bar glass-panel">
-          <div style={{ fontSize: '1.2rem', fontWeight: 600 }}>Visor de Grabaciones</div>
+      {/* ── MAIN ── */}
+      <main className="main">
+        <header className="topbar">
+          <h1 className="topbar-title">Visor de Grabaciones</h1>
         </header>
 
         {!playData ? (
-          <div className="glass-panel empty-state">
-            <Calendar size={64} className="empty-icon" />
-            <h2>Selecciona los parámetros</h2>
-            <p>Elige una cámara y la fecha/hora en la barra lateral para buscar la grabación.</p>
+          <div className="main-empty">
+            <Calendar size={40} className="empty-icon" />
+            <p className="empty-title">Sin grabación seleccionada</p>
+            <p className="empty-desc">Elegí una cámara y una fecha para buscar la grabación.</p>
           </div>
         ) : (
-          <div className="camera-grid maximized-view">
-            <JSMpegPlayer 
-              key={playData.key} 
-              camId={playData.camId} 
-              title={getCameraName(playData.camId) + " (Playback)"}
+          <div className="cam-grid-max">
+            <JSMpegPlayer
+              key={playData.key}
+              camId={playData.camId}
+              title={`${getCamName(playData.camId)} · Playback`}
               onClose={() => setPlayData(null)}
-              isPlayback={true}
+              isPlayback
               starttime={playData.starttime}
             />
           </div>
@@ -107,5 +148,3 @@ function Playback({ setView }) {
     </div>
   );
 }
-
-export default Playback;

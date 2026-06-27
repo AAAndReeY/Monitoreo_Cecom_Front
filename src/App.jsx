@@ -1,175 +1,397 @@
-import React, { useState, useEffect } from 'react';
-import { Camera, Server, Activity, MonitorPlay, Video, LayoutGrid } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { MonitorPlay, Video, Search, X, Shield, ChevronRight, LayoutGrid, XCircle } from 'lucide-react';
 import JSMpegPlayer from './JSMpegPlayer';
 import Playback from './Playback';
 
+/* ── GRID LAYOUT CALCULATOR ──────────────────────── */
+function gridStyle(n) {
+  // 1-2 cámaras: sin filas fijas, el aspect-ratio 16:9 controla la altura
+  if (n <= 1) return { gridTemplateColumns: '1fr',            alignContent: 'center' };
+  if (n === 2) return { gridTemplateColumns: '1fr 1fr',       alignContent: 'center' };
+  // 3+ cámaras: grilla fija que llena la pantalla
+  if (n === 3) return { gridTemplateColumns: '1fr 1fr',       gridTemplateRows: '1fr 1fr' };
+  if (n === 4) return { gridTemplateColumns: '1fr 1fr',       gridTemplateRows: '1fr 1fr' };
+  if (n <= 6)  return { gridTemplateColumns: 'repeat(3,1fr)', gridTemplateRows: '1fr 1fr' };
+  return              { gridTemplateColumns: 'repeat(4,1fr)', gridTemplateRows: '1fr 1fr' };
+}
+
+/* ── MAIN MENU ───────────────────────────────────── */
 function MainMenu({ setView }) {
   return (
-    <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
-      <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', maxWidth: '600px' }}>
-        <MonitorPlay size={64} color="#3b82f6" style={{ marginBottom: '20px' }} />
-        <h1 style={{ fontSize: '2.5rem', marginBottom: '10px' }}>HikViewer Pro</h1>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '40px', fontSize: '1.1rem' }}>
-          Sistema de gestión de video inteligente.
-        </p>
-        
-        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
-          <button 
-            className="menu-btn"
-            onClick={() => setView('monitoring')}
-            style={{ padding: '20px 40px', fontSize: '1.2rem', borderRadius: '12px', background: 'var(--accent-color)', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', transition: 'all 0.2s' }}
-            onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-            onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-          >
-            <LayoutGrid size={32} />
-            Centro de Monitoreo
+    <div className="menu-screen">
+      <div className="menu-wrap">
+
+        <header className="menu-header">
+          <div className="menu-badge">
+            <Shield size={11} />
+            CECOM · San Juan de Lurigancho
+          </div>
+          <h1 className="menu-title">HikViewer <em>Pro</em></h1>
+          <p className="menu-desc">Plataforma centralizada de videovigilancia municipal</p>
+        </header>
+
+        <div className="menu-cards">
+          <button className="mcard mcard--accent" onClick={() => setView('monitoring')}>
+            <div className="mcard-icon">
+              <LayoutGrid size={26} />
+            </div>
+            <div className="mcard-body">
+              <span className="mcard-title">Centro de Monitoreo</span>
+              <span className="mcard-desc">Vista en vivo · hasta 8 cámaras simultáneas</span>
+            </div>
+            <ChevronRight size={16} className="mcard-arrow" />
           </button>
-          
-          <button 
-            className="menu-btn"
-            onClick={() => setView('playback')}
-            style={{ padding: '20px 40px', fontSize: '1.2rem', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', transition: 'all 0.2s' }}
-            onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.background = 'rgba(255,255,255,0.15)' }}
-            onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
-          >
-            <Video size={32} />
-            Playback (Grabaciones)
+
+          <button className="mcard" onClick={() => setView('playback')}>
+            <div className="mcard-icon mcard-icon--dim">
+              <Video size={26} />
+            </div>
+            <div className="mcard-body">
+              <span className="mcard-title">Visor de Grabaciones</span>
+              <span className="mcard-desc">Reproducción por fecha y hora · playback NVR</span>
+            </div>
+            <ChevronRight size={16} className="mcard-arrow" />
           </button>
         </div>
+
       </div>
     </div>
   );
 }
 
-function App() {
-  const [currentView, setCurrentView] = useState('menu'); // 'menu', 'monitoring', 'playback'
-  const [cameras, setCameras] = useState([]);
-  const [activeCameras, setActiveCameras] = useState([]); // Array of camera IDs
-  const [selectedPTZCamera, setSelectedPTZCamera] = useState(null); // The camera selected for keyboard PTZ
-  const [maximizedCamera, setMaximizedCamera] = useState(null); // The camera currently maximized
+/* ── HELPERS ─────────────────────────────────────── */
+const makeKey  = (camId, channel) => `${camId}:${channel}`;
+const parseKey = (key) => {
+  const i = key.lastIndexOf(':');
+  return { camId: key.slice(0, i), channel: parseInt(key.slice(i + 1)) };
+};
 
-  const MAX_CAMERAS = 8;
+/* ── CAMERA ROW ──────────────────────────────────── */
+function CamRow({ cam, activeKeys, onToggle }) {
+  const [expanded, setExpanded] = useState(false);
+  const isMulti   = cam.channels && cam.channels.length > 1;
+  const anyActive = (cam.channels || []).some(ch => activeKeys.includes(makeKey(cam.id, ch)));
 
-  useEffect(() => {
-    // Fetch available cameras from backend
-    fetch('http://localhost:3001/api/cameras')
-      .then(res => res.json())
-      .then(data => setCameras(data))
-      .catch(err => console.error("Error fetching cameras:", err));
-  }, []);
-
-  const toggleCamera = (camId) => {
-    if (activeCameras.includes(camId)) {
-      setActiveCameras(activeCameras.filter(id => id !== camId));
-      if (selectedPTZCamera === camId) setSelectedPTZCamera(null);
-      if (maximizedCamera === camId) setMaximizedCamera(null);
+  const handleClick = () => {
+    if (isMulti) {
+      setExpanded(e => !e);
     } else {
-      if (activeCameras.length >= MAX_CAMERAS) {
-        const removedCam = activeCameras[0];
-        setActiveCameras([...activeCameras.slice(1), camId]);
-        if (selectedPTZCamera === removedCam) setSelectedPTZCamera(null);
-        if (maximizedCamera === removedCam) setMaximizedCamera(null);
-      } else {
-        setActiveCameras([...activeCameras, camId]);
-      }
+      onToggle(makeKey(cam.id, (cam.channels || [102])[0]));
     }
   };
 
-  const toggleMaximize = (camId) => {
-    setMaximizedCamera(prev => prev === camId ? null : camId);
-  };
-
-  const getCameraName = (id) => {
-    const cam = cameras.find(c => c.id === id);
-    return cam ? cam.name : id;
-  };
-
-  if (currentView === 'menu') {
-    return <MainMenu setView={setCurrentView} />;
-  }
-
-  if (currentView === 'playback') {
-    return <Playback setView={setCurrentView} />;
-  }
-
-  // Monitoring View
   return (
-    <div className="app-container">
-      {/* Sidebar */}
-      <aside className="sidebar glass-panel">
-        <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ fontSize: '1.2rem' }}><MonitorPlay size={24} color="#3b82f6" /> HikViewer Pro</h1>
-          <button 
-            onClick={() => setCurrentView('menu')}
-            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
-          >
-            Menú
-          </button>
-        </div>
-        
-        <div className="header-stats" style={{ marginBottom: '12px' }}>
-          <div className="stat-item">
-            <Activity size={16} /> Activas: <strong>{activeCameras.length} / {MAX_CAMERAS}</strong>
-          </div>
-        </div>
-
-        <div className="camera-list">
-          {cameras.map((cam) => {
-            const isActive = activeCameras.includes(cam.id);
+    <div className="cam-entry">
+      <button
+        className={`cam-row${anyActive ? ' cam-row--on' : ''}`}
+        onClick={handleClick}
+        title={cam.name}
+      >
+        <span className={`led${anyActive ? ' led--on' : ''}`} />
+        <span className="cam-label">{cam.name}</span>
+        {isMulti && (
+          <ChevronRight size={10} className={`acc-arrow cam-expand-arrow${expanded ? ' acc-arrow--open' : ''}`} />
+        )}
+      </button>
+      {expanded && isMulti && (
+        <div className="lens-picker">
+          {cam.channels.map((ch, i) => {
+            const key = makeKey(cam.id, ch);
+            const isOn = activeKeys.includes(key);
             return (
-              <div 
-                key={cam.id} 
-                className={`camera-item ${isActive ? 'active' : ''}`}
-                onClick={() => toggleCamera(cam.id)}
+              <button
+                key={ch}
+                className={`lens-btn${isOn ? ' lens-btn--on' : ''}`}
+                onClick={() => onToggle(key)}
+                title={`Vista ${i + 1} (canal ${ch})`}
               >
-                <div className="camera-info">
-                  <Camera size={20} className="camera-icon" />
-                  <span className="camera-name">{cam.name}</span>
-                </div>
-                {isActive && (
-                  <div className="status-dot" style={{ width: 6, height: 6 }}></div>
-                )}
-              </div>
+                Vista {i + 1}
+              </button>
             );
           })}
         </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="main-content">
-        <header className="header-bar glass-panel">
-          <div style={{ fontSize: '1.2rem', fontWeight: 600 }}>Centro de Monitoreo</div>
-          <div className="header-stats">
-            <div className="stat-item">
-              <Server size={18} /> Backend: <strong style={{ color: '#10b981' }}>Online</strong>
-            </div>
-          </div>
-        </header>
-
-        {activeCameras.length === 0 ? (
-          <div className="glass-panel empty-state">
-            <MonitorPlay size={64} className="empty-icon" />
-            <h2>No hay cámaras seleccionadas</h2>
-            <p>Selecciona una cámara de la lista lateral para comenzar a monitorear.</p>
-          </div>
-        ) : (
-          <div className={`camera-grid ${maximizedCamera ? 'maximized-view' : ''}`}>
-            {(maximizedCamera ? [maximizedCamera] : activeCameras).map(camId => (
-              <JSMpegPlayer 
-                key={camId} 
-                camId={camId} 
-                title={getCameraName(camId)}
-                onClose={() => toggleCamera(camId)} 
-                isSelected={selectedPTZCamera === camId}
-                onSelect={() => setSelectedPTZCamera(camId)}
-                onDoubleClick={() => toggleMaximize(camId)}
-              />
-            ))}
-          </div>
-        )}
-      </main>
+      )}
     </div>
   );
 }
 
-export default App;
+/* ── MACRO ZONE → ZONE → CAMERAS ────────────────── */
+const MACRO_ZONES = [
+  { key: 'ZONA NORTE',  zones: ['10 DE OCTUBRE', 'BAYOVAR', 'MARISCAL CACERES'] },
+  { key: 'ZONA CENTRO', zones: ['CANTO REY', 'SANTA ELIZABETH'] },
+  { key: 'ZONA SUR',    zones: ['ZARATE', 'CAJA DE AGUA', 'LA HUAYRONA'] },
+];
+
+function ZoneAccordion({ grouped, activeKeys, onToggle }) {
+  const [openMacros, setOpenMacros] = useState(() => new Set(MACRO_ZONES.map(m => m.key)));
+  const [openZones, setOpenZones]   = useState(new Set());
+
+  const toggleMacro = (key) => setOpenMacros(prev => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+
+  const toggleZone = (zone) => setOpenZones(prev => {
+    const next = new Set(prev);
+    if (next.has(zone)) next.delete(zone); else next.add(zone);
+    return next;
+  });
+
+  const camIsActive = (cam) => (cam.channels || []).some(ch => activeKeys.includes(makeKey(cam.id, ch)));
+
+  return (
+    <div>
+      {MACRO_ZONES.map(({ key, zones }) => {
+        const macroOpen   = openMacros.has(key);
+        const macroCams   = zones.flatMap(z => grouped[z] || []);
+        const macroActive = macroCams.filter(camIsActive).length;
+
+        return (
+          <div key={key} className="macro-section">
+            <button className="macro-header" onClick={() => toggleMacro(key)}>
+              <ChevronRight size={12} className={`acc-arrow${macroOpen ? ' acc-arrow--open' : ''}`} />
+              <span className="macro-name">{key}</span>
+              <span className="acc-meta">
+                {macroActive > 0 && <span className="acc-live">{macroActive}</span>}
+                <span className="acc-total">{macroCams.length}</span>
+              </span>
+            </button>
+
+            {macroOpen && (
+              <div className="macro-body">
+                {zones.map(z => {
+                  const cams       = grouped[z] || [];
+                  const activeHere = cams.filter(camIsActive).length;
+                  const isOpen     = openZones.has(z);
+                  return (
+                    <div key={z} className={`acc-item${isOpen ? ' acc-item--open' : ''}`}>
+                      <button className="acc-trigger" onClick={() => toggleZone(z)}>
+                        <ChevronRight size={11} className={`acc-arrow${isOpen ? ' acc-arrow--open' : ''}`} />
+                        <span className="acc-zone">{z}</span>
+                        <span className="acc-meta">
+                          {activeHere > 0 && <span className="acc-live">{activeHere}</span>}
+                          <span className="acc-total">{cams.length}</span>
+                        </span>
+                      </button>
+                      {isOpen && (
+                        <div className="acc-body">
+                          {cams.map(cam => (
+                            <CamRow key={cam.id} cam={cam} activeKeys={activeKeys} onToggle={onToggle} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── APP ─────────────────────────────────────────── */
+export default function App() {
+  const [view, setView]     = useState('menu');
+  const [cameras, setCameras] = useState([]);
+  const [active, setActive] = useState([]);
+  const [ptzCam, setPtzCam] = useState(null);
+  const [maxCam, setMaxCam] = useState(null);
+  const [search, setSearch] = useState('');
+  const MAX = 8;
+
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/api/cameras`)
+      .then(r => r.json())
+      .then(setCameras)
+      .catch(console.error);
+  }, []);
+
+  const visibleCameras = useMemo(
+    () => cameras.filter(c => c.zone !== 'GENERAL'),
+    [cameras]
+  );
+
+  const grouped = useMemo(() => {
+    return visibleCameras.reduce((acc, c) => {
+      const z = c.zone || 'Sin zona';
+      if (!acc[z]) acc[z] = [];
+      acc[z].push(c);
+      return acc;
+    }, {});
+  }, [visibleCameras]);
+
+  const searchResults = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return [];
+    return visibleCameras.filter(c => c.name.toLowerCase().includes(q) || c.id.includes(q));
+  }, [visibleCameras, search]);
+
+  const toggle = useCallback((key) => {
+    setActive(prev => {
+      if (prev.includes(key)) {
+        if (ptzCam === key) setPtzCam(null);
+        if (maxCam === key) setMaxCam(null);
+        return prev.filter(x => x !== key);
+      }
+      if (prev.length >= MAX) {
+        const [out, ...rest] = prev;
+        if (ptzCam === out) setPtzCam(null);
+        if (maxCam === out) setMaxCam(null);
+        return [...rest, key];
+      }
+      return [...prev, key];
+    });
+  }, [ptzCam, maxCam]);
+
+  const closeAll = () => {
+    setActive([]);
+    setPtzCam(null);
+    setMaxCam(null);
+  };
+
+  const toggleMax = (key) => setMaxCam(p => p === key ? null : key);
+
+  const getName = (key) => {
+    const { camId, channel } = parseKey(key);
+    const cam = cameras.find(c => c.id === camId);
+    if (!cam) return camId;
+    const idx = (cam.channels || []).indexOf(channel);
+    return cam.name + (idx > 0 ? ` · Vista ${idx + 1}` : '');
+  };
+
+  if (view === 'menu')     return <MainMenu setView={setView} />;
+  if (view === 'playback') return <Playback setView={setView} />;
+
+  const displayCams = maxCam ? [maxCam] : active;
+  const gridCount   = maxCam ? 1 : active.length;
+
+  return (
+    <div className="layout">
+
+      {/* ── SIDEBAR ─────────────────────────── */}
+      <aside className="sidebar" role="navigation" aria-label="Lista de cámaras">
+
+        {/* Brand */}
+        <div className="sb-brand">
+          <div className="sb-brand-logo">
+            <MonitorPlay size={16} />
+          </div>
+          <span className="sb-brand-name">HikViewer Pro</span>
+          <button className="sb-btn-menu" onClick={() => setView('menu')}>Menú</button>
+        </div>
+
+        {/* Search */}
+        <div className="sb-search">
+          <label htmlFor="cam-search" className="sr-only">Buscar cámara</label>
+          <Search size={13} className="sb-search-icon" aria-hidden />
+          <input
+            id="cam-search"
+            className="sb-search-input"
+            type="search"
+            placeholder="Buscar cámara..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            autoComplete="off"
+          />
+          {search && (
+            <button className="sb-search-clear" onClick={() => setSearch('')} aria-label="Limpiar búsqueda">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+
+        {/* Cameras count */}
+        <div className="sb-info">
+          <span>{visibleCameras.length} cámaras · máx. 8 simultáneas</span>
+          {active.length > 0 && (
+            <button className="sb-close-all" onClick={closeAll} title="Cerrar todas las cámaras">
+              <XCircle size={13} />
+              Cerrar todo
+            </button>
+          )}
+        </div>
+
+        {/* Body: search results OR accordion */}
+        <div className="sb-body" role="list">
+          {search ? (
+            <div className="sb-search-results">
+              <p className="sb-results-label">{searchResults.length} resultado{searchResults.length !== 1 ? 's' : ''}</p>
+              {searchResults.map(cam => (
+                <CamRow key={cam.id} cam={cam} activeKeys={active} onToggle={toggle} />
+              ))}
+              {!searchResults.length && <p className="sb-empty">Sin resultados para "{search}"</p>}
+            </div>
+          ) : (
+            <ZoneAccordion grouped={grouped} activeKeys={active} onToggle={toggle} />
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="sb-footer">
+          <span className="sb-footer-title">Monitoreo de Cámaras</span>
+          <span className="sb-footer-sub">San Juan de Lurigancho · CECOM</span>
+        </div>
+
+      </aside>
+
+      {/* ── MAIN ────────────────────────────── */}
+      <main className="main" role="main">
+
+        {/* Topbar */}
+        <header className="topbar">
+          <h1 className="topbar-title">Centro de Monitoreo</h1>
+          {active.length > 0 && (
+            <div className="topbar-right">
+              <span className="topbar-count">{active.length} de {MAX} cámaras</span>
+              <button className="topbar-close-all" onClick={closeAll}>
+                <X size={13} /> Cerrar todo
+              </button>
+            </div>
+          )}
+        </header>
+
+        {/* Content */}
+        {active.length === 0 ? (
+          <div className="empty-state" role="status">
+            <div className="empty-icon-wrap">
+              <LayoutGrid size={36} />
+            </div>
+            <h2 className="empty-title">Sin cámaras activas</h2>
+            <p className="empty-desc">
+              Seleccioná una jurisdicción del panel y elegí una cámara para comenzar el monitoreo.
+            </p>
+          </div>
+        ) : (
+          <div
+            className={`cam-grid${maxCam ? ' cam-grid--max' : ''}`}
+            style={maxCam ? {} : gridStyle(gridCount)}
+            data-count={maxCam ? 1 : gridCount}
+            role="region"
+            aria-label="Grilla de cámaras"
+          >
+            {displayCams.map(key => {
+              const { camId, channel } = parseKey(key);
+              return (
+                <JSMpegPlayer
+                  key={key}
+                  camId={camId}
+                  channel={channel}
+                  title={getName(key)}
+                  onClose={() => toggle(key)}
+                  isSelected={ptzCam === key}
+                  onSelect={() => setPtzCam(key)}
+                  onDoubleClick={() => toggleMax(key)}
+                />
+              );
+            })}
+          </div>
+        )}
+
+      </main>
+    </div>
+  );
+}
