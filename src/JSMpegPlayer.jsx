@@ -38,8 +38,9 @@ const JSMpegPlayer = ({
           setTimeout(() => {
             if (canvasRef.current && window.JSMpeg) {
               let played = false;
+              const wsHost = new URL(import.meta.env.VITE_API_URL).hostname;
               playerRef.current = new window.JSMpeg.Player(
-                `ws://localhost:${wsPort}`,
+                `ws://${wsHost}:${wsPort}`,
                 {
                   canvas: canvasRef.current,
                   autoplay: true,
