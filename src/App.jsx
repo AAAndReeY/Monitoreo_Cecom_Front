@@ -15,7 +15,7 @@ function gridStyle(n) {
   return              { gridTemplateColumns: 'repeat(4,1fr)', gridTemplateRows: '1fr 1fr' };
 }
 
-/* ── MAIN MENU ───────────────────────────────────── */
+/* ── MAIN MENU (SJL VIEWER DASHBOARD) ───────────────────────── */
 function MainMenu({ setView }) {
   return (
     <div className="menu-screen">
@@ -26,32 +26,21 @@ function MainMenu({ setView }) {
             <Shield size={11} />
             CECOM · San Juan de Lurigancho
           </div>
-          <h1 className="menu-title">HikViewer <em>Pro</em></h1>
+          <h1 className="menu-title">SJL Viewer</h1>
           <p className="menu-desc">Plataforma centralizada de videovigilancia municipal</p>
         </header>
 
-        <div className="menu-cards">
-          <button className="mcard mcard--accent" onClick={() => setView('monitoring')}>
-            <div className="mcard-icon">
-              <LayoutGrid size={26} />
-            </div>
-            <div className="mcard-body">
-              <span className="mcard-title">Centro de Monitoreo</span>
-              <span className="mcard-desc">Vista en vivo · hasta 8 cámaras simultáneas</span>
-            </div>
-            <ChevronRight size={16} className="mcard-arrow" />
-          </button>
+        <div className="hc-content">
+          <div className="hc-grid-centered">
+            
+            <button className="hc-card-large" onClick={() => setView('monitoring')}>
+              <div className="hc-icon-wrap-large">
+                <LayoutGrid size={60} className="hc-icon-base" />
+              </div>
+              <span className="hc-card-title-large">Centro de Monitoreo</span>
+            </button>
 
-          <button className="mcard" onClick={() => setView('playback')}>
-            <div className="mcard-icon mcard-icon--dim">
-              <Video size={26} />
-            </div>
-            <div className="mcard-body">
-              <span className="mcard-title">Visor de Grabaciones</span>
-              <span className="mcard-desc">Reproducción por fecha y hora · playback NVR</span>
-            </div>
-            <ChevronRight size={16} className="mcard-arrow" />
-          </button>
+          </div>
         </div>
 
       </div>
@@ -103,9 +92,9 @@ function CamRow({ cam, activeKeys, onToggle }) {
                 key={ch}
                 className={`lens-btn${isOn ? ' lens-btn--on' : ''}`}
                 onClick={() => onToggle(key)}
-                title={`Vista ${i + 1} (canal ${ch})`}
+                title={i === 0 ? `Vista 1 - PTZ (canal ${ch})` : `Vista ${i + 1} (canal ${ch})`}
               >
-                Vista {i + 1}
+                {i === 0 ? 'Vista 1 (PTZ)' : `Vista ${i + 1}`}
               </button>
             );
           })}
