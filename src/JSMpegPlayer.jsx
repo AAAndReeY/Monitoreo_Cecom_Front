@@ -26,7 +26,7 @@ const JSMpegPlayer = ({
           ? { starttime }
           : channel ? { channel } : null;
 
-        const res = await fetch(`http://localhost:3001${endpoint}`, {
+        const res = await fetch(`import.meta.env.VITE_API_URL${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: body ? JSON.stringify(body) : undefined,
@@ -75,7 +75,7 @@ const JSMpegPlayer = ({
       const stopEndpoint = isPlayback
         ? `/api/stream/playback/stop/${camId}`
         : `/api/stream/stop/${camId}`;
-      fetch(`http://localhost:3001${stopEndpoint}`, {
+      fetch(`import.meta.env.VITE_API_URL${stopEndpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: channel ? JSON.stringify({ channel }) : undefined,
@@ -85,7 +85,7 @@ const JSMpegPlayer = ({
 
   /* ── PTZ KEYBOARD ────────────────────────────── */
   useEffect(() => {
-    const ptz = (cmd) => fetch(`http://localhost:3001/api/ptz/${camId}`, {
+    const ptz = (cmd) => fetch(`import.meta.env.VITE_API_URL/api/ptz/${camId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ command: cmd }),

@@ -204,7 +204,7 @@ export default function App() {
   const MAX = 8;
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/cameras')
+    fetch('import.meta.env.VITE_API_URL/api/cameras')
       .then(r => r.json())
       .then(setCameras)
       .catch(console.error);

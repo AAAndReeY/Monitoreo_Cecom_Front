@@ -24,6 +24,9 @@ dist-ssr
 *.sw?
 CLAUDE.md
 
+# Env
+.env
+
 # Claude / AI tooling
 .claude/
 .agents/
