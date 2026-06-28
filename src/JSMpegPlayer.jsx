@@ -45,6 +45,7 @@ const JSMpegPlayer = ({
                   canvas: canvasRef.current,
                   autoplay: true,
                   audio: false,
+                  videoBufferSize: 2 * 1024 * 1024,
                   onPlay: () => { played = true; setLoading(false); }
                 }
               );
