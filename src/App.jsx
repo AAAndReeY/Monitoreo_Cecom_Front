@@ -344,7 +344,7 @@ export default function App() {
         <header className="topbar">
           <h1 className="topbar-title">Centro de Monitoreo</h1>
           <div className="topbar-right">
-            {device ? (
+            {navigator.hid && (device ? (
               <span className="gamepad-badge gamepad-badge--active" title={device.productName || 'Joystick PTZ conectado'}>
                 🕹 Joystick
                 <button
@@ -359,7 +359,7 @@ export default function App() {
               <button className="gamepad-badge" onClick={connect} title="Hacer click una sola vez para autorizar el joystick PTZ">
                 🕹 Activar joystick
               </button>
-            )}
+            ))}
             {active.length > 0 && (
               <>
                 <span className="topbar-count">{active.length} de {MAX} cámaras</span>
