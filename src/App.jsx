@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { MonitorPlay, Video, Search, X, Shield, ChevronRight, LayoutGrid, XCircle } from 'lucide-react';
 import JSMpegPlayer from './JSMpegPlayer';
 import Playback from './Playback';
+import { useGamepad } from './hooks/useGamepad';
 
 /* ── GRID LAYOUT CALCULATOR ──────────────────────── */
 function gridStyle(n) {
@@ -192,6 +193,9 @@ export default function App() {
   const [search, setSearch] = useState('');
   const MAX = 8;
 
+  const ptzCamId = ptzCam ? parseKey(ptzCam).camId : null;
+  const { device, connect, disconnect } = useGamepad(ptzCamId);
+
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/api/cameras`)
       .then(r => r.json())
@@ -339,14 +343,32 @@ export default function App() {
         {/* Topbar */}
         <header className="topbar">
           <h1 className="topbar-title">Centro de Monitoreo</h1>
-          {active.length > 0 && (
-            <div className="topbar-right">
-              <span className="topbar-count">{active.length} de {MAX} cámaras</span>
-              <button className="topbar-close-all" onClick={closeAll}>
-                <X size={13} /> Cerrar todo
+          <div className="topbar-right">
+            {device ? (
+              <span className="gamepad-badge gamepad-badge--active" title={device.productName || 'Joystick PTZ conectado'}>
+                🕹 Joystick
+                <button
+                  onClick={disconnect}
+                  style={{ marginLeft: 8, fontSize: 9, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer' }}
+                  title="Desconectar joystick"
+                >
+                  ✕
+                </button>
+              </span>
+            ) : (
+              <button className="gamepad-badge" onClick={connect} title="Hacer click una sola vez para autorizar el joystick PTZ">
+                🕹 Activar joystick
               </button>
-            </div>
-          )}
+            )}
+            {active.length > 0 && (
+              <>
+                <span className="topbar-count">{active.length} de {MAX} cámaras</span>
+                <button className="topbar-close-all" onClick={closeAll}>
+                  <X size={13} /> Cerrar todo
+                </button>
+              </>
+            )}
+          </div>
         </header>
 
         {/* Content */}
