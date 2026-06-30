@@ -475,6 +475,19 @@ body {
   color: var(--t2);
 }
 
+.gamepad-badge {
+  font-size: var(--xs);
+  color: var(--t2);
+  border: 1px solid var(--line2);
+  border-radius: var(--r-sm);
+  padding: 3px 8px;
+}
+.gamepad-badge--active {
+  color: var(--live);
+  border-color: rgba(15,217,160,0.3);
+  background: var(--live-bg);
+}
+
 .topbar-close-all {
   display: flex;
   align-items: center;
